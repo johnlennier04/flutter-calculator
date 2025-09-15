@@ -45,9 +45,19 @@ class _CalculatorState extends State<Calculator> {
         _error = false;
       } else if (value == '=') {
         try {
-          final exp = Expression.parse(_expression.replaceAll('×', '*').replaceAll('÷', '/'));
+          String expr = _expression.replaceAll('×', '*').replaceAll('÷', '/');
+          // Handle squaring: replace any number followed by ^2 with pow(number, 2)
+          expr = expr.replaceAllMapped(RegExp(r'(\d+(?:\.\d+)?)\^2'), (match) {
+            return 'pow(${match.group(1)},2)';
+          });
+          // Handle modulo: replace a % b with (a % b)
+          expr = expr.replaceAllMapped(RegExp(r'(\d+(?:\.\d+)?)%((?:\d+(?:\.\d+)?))'), (match) {
+            return '(${match.group(1)} % ${match.group(2)})';
+          });
+          final exp = Expression.parse(expr);
           final evaluator = const ExpressionEvaluator();
-          final evalResult = evaluator.eval(exp, {});
+          final context = {'pow': (num x, num y) => x == null || y == null ? null : x is int && y is int ? x.toDouble().pow(y) : x is double ? x.pow(y) : x is num ? x.toDouble().pow(y) : null};
+          final evalResult = evaluator.eval(exp, context);
           _result = evalResult.toString();
           _accumulator = _expression + ' = ' + _result;
           _expression = _result;
@@ -56,6 +66,14 @@ class _CalculatorState extends State<Calculator> {
           _result = 'Error';
           _accumulator = _expression + ' = Error';
           _error = true;
+        }
+      } else if (value == 'x²') {
+        if (_expression.isNotEmpty && !_error) {
+          // Only append ^2 if last char is a digit or decimal
+          if (RegExp(r'[0-9.]$').hasMatch(_expression)) {
+            _expression += '^2';
+            _accumulator = _expression;
+          }
         }
       } else {
         if (_error) {
@@ -165,6 +183,13 @@ class _CalculatorState extends State<Calculator> {
                     children: [
                       _buildButton('0'),
                       _buildButton('.'),
+                      _buildButton('%', color: Colors.purple[100], textColor: Colors.purple[900]),
+                      _buildButton('x²', color: Colors.orange[100], textColor: Colors.orange[900]),
+                    ],
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
                       _buildButton('C', color: Colors.red[100], textColor: Colors.red[900]),
                       _buildButton('+', color: Colors.blue[100], textColor: Colors.blue[900]),
                     ],
